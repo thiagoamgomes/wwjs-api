@@ -9,7 +9,7 @@ services:
     # image: chrishubert/whatsapp-web-api:latest # Pull the image from Docker Hub
     # restart: always
     ports:
-      - "3000:3000"
+      - "2999:3000"
     environment:
       # - API_KEY=your_global_api_key_here  # OPTIONAL
       - BASE_WEBHOOK_URL=https://webhook.site/e03fed14-d39c-47b8-804b-783d3950be25
@@ -21,3 +21,5 @@ services:
       - ENABLE_SWAGGER_ENDPOINT=TRUE # OPTIONAL, ENABLES THE /api-docs ENDPOINT
     volumes:
       - ./sessions:/usr/src/app/sessions # Mount the local ./sessions/ folder to the container's /usr/src/app/sessions folder
+    extra_hosts:
+      - "external:192.168.1.64"

@@ -70,6 +70,17 @@ const sendMessage = async (req, res) => {
     const { chatId, content, contentType, options } = req.body
     const client = sessions.get(req.params.sessionId)
 
+    const result = chatId.includes('@.g.us') ? chatId : await client.getNumberId(chatId)
+    const jId = result?._serialized ? result._serialized : chatId
+
+    const isWhatsApp = await client.isRegisteredUser(chatId)
+
+    if(isWhatsApp === false){
+      sendErrorResponse(res, 403, 'number_not_whatsapp')
+      return
+    }
+    
+
     let messageOut
     switch (contentType) {
       case 'string':
@@ -77,41 +88,41 @@ const sendMessage = async (req, res) => {
           const media = options.media
           options.media = new MessageMedia(media.mimetype, media.data, media.filename = null, media.filesize = null)
         }
-        messageOut = await client.sendMessage(chatId, content, options)
+        messageOut = await client.sendMessage(jId, content, options)
         break
       case 'MessageMediaFromURL': {
         const messageMediaFromURL = await MessageMedia.fromUrl(content, { unsafeMime: true })
-        messageOut = await client.sendMessage(chatId, messageMediaFromURL, options)
+        messageOut = await client.sendMessage(jId, messageMediaFromURL, options)
         break
       }
       case 'MessageMedia': {
         const messageMedia = new MessageMedia(content.mimetype, content.data, content.filename, content.filesize)
-        messageOut = await client.sendMessage(chatId, messageMedia, options)
+        messageOut = await client.sendMessage(jId, messageMedia, options)
         break
       }
       case 'Location': {
         const location = new Location(content.latitude, content.longitude, content.description)
-        messageOut = await client.sendMessage(chatId, location, options)
+        messageOut = await client.sendMessage(jId, location, options)
         break
       }
       case 'Buttons': {
         const buttons = new Buttons(content.body, content.buttons, content.title, content.footer)
-        messageOut = await client.sendMessage(chatId, buttons, options)
+        messageOut = await client.sendMessage(jId, buttons, options)
         break
       }
       case 'List': {
         const list = new List(content.body, content.buttonText, content.sections, content.title, content.footer)
-        messageOut = await client.sendMessage(chatId, list, options)
+        messageOut = await client.sendMessage(jId, list, options)
         break
       }
       case 'Contact': {
-        const contact = await client.getContactById(typeof content.contactId === 'number' ? content.contactId + '@c.us' : content.contactId)
-        messageOut = await client.sendMessage(chatId, contact, options)
+        const contact = await client.getContactById(typeof content.contactId === 'number' ? content.contactId + '@c.us' : await client.getNumberId(content.contactId))
+        messageOut = await client.sendMessage(jId, contact, options)
         break
       }
       case 'Poll': {
         const poll = new Poll(content.pollName, content.pollOptions, content.options)
-        messageOut = await client.sendMessage(chatId, poll, options)
+        messageOut = await client.sendMessage(jId, poll, options)
         break
       }
       default:
@@ -138,8 +149,9 @@ const sendMessage = async (req, res) => {
  */
 const getClassInfo = async (req, res) => {
   try {
-    const client = sessions.get(req.params.sessionId)
+    const client = sessions.get(req.params.sessionId)    
     const sessionInfo = await client.info
+    // const pictureUrl = await client.getProfilePicUrl(sessionInfo.wid._serialized)
     res.json({ success: true, sessionInfo })
   } catch (error) {
     sendErrorResponse(res, 500, error.message)
