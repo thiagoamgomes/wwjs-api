@@ -2,6 +2,8 @@
 const qr = require('qr-image')
 const { setupSession, deleteSession, validateSession, flushSessions, sessions } = require('../sessions')
 const { sendErrorResponse, waitForNestedObject } = require('../utils')
+const { sessionFolderPath } = require('../config')
+const { Console } = require('console')
 
 /**
  * Starts a session for the given session ID.
@@ -19,6 +21,10 @@ const startSession = async (req, res) => {
   // #swagger.description = 'Starts a session for the given session ID.'
   try {
     const sessionId = req.params.sessionId
+    const webhook = req?.query?.webhook || process.env.BASE_WEBHOOK_URL
+
+    global.sessionWebhook[sessionId] = webhook
+
     const setupSessionReturn = setupSession(sessionId)
     if (!setupSessionReturn.success) {
       /* #swagger.responses[422] = {
@@ -42,9 +48,17 @@ const startSession = async (req, res) => {
       }
     }
     */
+
+    const json = JSON.stringify({ sessionId: sessionId, webhook: webhook })
+
+   var fs = require('fs');
+   fs.writeFile(`./sessions/webhook-${sessionId}.json`, json, 'utf8', (err,data) => {
+    console.log(err, data)
+   });
+
     // wait until the client is created
     waitForNestedObject(setupSessionReturn.client, 'pupPage')
-      .then(res.json({ success: true, message: setupSessionReturn.message }))
+      .then(res.json({ success: true, message: 'Instância iniciada com sucesso!' }))
       .catch((err) => { sendErrorResponse(res, 500, err.message) })
   } catch (error) {
   /* #swagger.responses[500] = {

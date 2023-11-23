@@ -13,4 +13,6 @@ app.use('/', routes)
 
 restoreSessions()
 
+global.sessionWebhook = {}
+
 module.exports = app

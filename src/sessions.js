@@ -65,7 +65,18 @@ const restoreSessions = () => {
         if (match) {
           const sessionId = match[1]
           console.log('existing session detected', sessionId)
-          setupSession(sessionId)
+          
+          fs.readFile(`./sessions/webhook-${sessionId}.json`, 'utf8', function readFileCallback(err, data) {
+            if (err) {
+              setupSession(sessionId)
+              console.log(err);
+            } else {
+              obj = JSON.parse(data); //now it an object
+
+              global.sessionWebhook[sessionId] = obj.webhook
+              setupSession(sessionId)
+            }
+          });          
         }
       }
     })
@@ -74,6 +85,42 @@ const restoreSessions = () => {
     console.error('Failed to restore sessions:', error)
   }
 }
+
+// const restoreWebhook = () => {
+//   try {
+//     if (!fs.existsSync(sessionFolderPath)) {
+//       fs.mkdirSync(sessionFolderPath) // Create the session directory if it doesn't exist
+//     }
+//     // Read the contents of the folder
+//     fs.readdir(sessionFolderPath, (_, files) => {
+//       // Iterate through the files in the parent folder
+//       for (const file of files) {
+//         // Use regular expression to extract the string from the folder name
+//         const match = file.match(/^webhook-(.+)$/)
+//         if (match) {
+//           const sessionId = match[1]
+//           console.log('existing webhook session detected', sessionId)
+
+//           fs.readFile(`./sessions/webhook-${sessionId}`, 'utf8', function readFileCallback(err, data) {
+//             if (err) {
+//               console.log(err);
+//             } else {
+//               obj = JSON.parse(data); //now it an object
+
+//               global.sessionWebhook[sessionId] = obj.webhook
+
+//             }
+//           });
+
+          
+//         }
+//       }
+//     })
+//   } catch (error) {
+//     console.log(error)
+//     console.error('Failed to restore sessions:', error)
+//   }
+// }
 
 // Setup Session
 const setupSession = (sessionId) => {
@@ -134,7 +181,9 @@ const setupSession = (sessionId) => {
 
 const initializeEvents = (client, sessionId) => {
   // check if the session webhook is overridden
-  const sessionWebhook = process.env[sessionId.toUpperCase() + '_WEBHOOK_URL'] || baseWebhookURL
+  const sessionWebhook = global.sessionWebhook[sessionId] || baseWebhookURL
+
+  console.log('Carrego o webhook', global.sessionWebhook[sessionId], sessionWebhook)
 
   if (recoverSessions) {
     waitForNestedObject(client, 'pupPage').then(() => {
@@ -324,6 +373,17 @@ const deleteSessionFolder = async (sessionId) => {
   }
 }
 
+const deleteWebhookSession = async (sessionId) => {
+  try {
+    const targetFilePath = `./sessions/webhook-${sessionId}.json`
+    await fs.promises.rm(targetFilePath, { recursive: true, force: true })
+    delete global.sessionWebhook[sessionId]
+  } catch (error) {
+    console.log('File deletion error', error)
+    throw error
+  } 
+} 
+
 // Function to delete client session
 const deleteSession = async (sessionId, validation) => {
   try {
@@ -348,6 +408,7 @@ const deleteSession = async (sessionId, validation) => {
       await new Promise(resolve => setTimeout(resolve, 100))
     }
     await deleteSessionFolder(sessionId)
+    await deleteWebhookSession(sessionId)
     sessions.delete(sessionId)
   } catch (error) {
     console.log(error)
@@ -384,5 +445,6 @@ module.exports = {
   restoreSessions,
   validateSession,
   deleteSession,
+  deleteWebhookSession,
   flushSessions
 }
